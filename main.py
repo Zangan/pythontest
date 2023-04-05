@@ -1,39 +1,191 @@
-from ursina import *
+# Import the pygame module
+import pygame
 
-# create a window
-app = Ursina()
+# Import random for random numbers
+import random
 
-# most things in ursina are Entities. An Entity is a thing you place in the world.
-# you can think of them as GameObjects in Unity or Actors in Unreal.
-# the first parameter tells us the Entity's model will be a 3d-model called 'cube'.
-# ursina includes some basic models like 'cube', 'sphere' and 'quad'.
+# Import pygame.locals for easier access to key coordinates
+# Updated to conform to flake8 and black standards
+from pygame.locals import *#(
+#    K_UP,
+#    K_DOWN,
+#    K_LEFT,
+#    K_RIGHT,
+#    K_ESCAPE,
+#    KEYDOWN,
+#    QUIT,
+#)
 
-# the next parameter tells us the model's color should be orange.
+# Initialize pygame
+pygame.init()
 
-# 'scale_y=2' tells us how big the entity should be in the vertical axis, how tall it should be.
-# in ursina, positive x is right, positive y is up, and positive z is forward.
+# Define constants for the screen width and height
+SCREEN_WIDTH = 1500
+SCREEN_HEIGHT = 900
 
-player = Entity(model='cube', color=color.orange, scale_y=2)
+# Create the screen object
+# The size is determined by the constant SCREEN_WIDTH and SCREEN_HEIGHT
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
-# create a function called 'update'.
-# this will automatically get called by the engine every frame.
+# Variable to keep the main loop running
+running = True
 
-def update():
-    player.x += held_keys['d'] * 10 * time.dt
-    player.x -= held_keys['a'] * time.dt
+game_speed = 10
 
-# this part will make the player move left or right based on our input.
-# to check which keys are held down, we can check the held_keys dictionary.
-# 0 means not pressed and 1 means pressed.
-# time.dt is simply the time since the last frame. by multiplying with this, the
-# player will move at the same speed regardless of how fast the game runs.
+# Define a Player object by extending pygame.sprite.Sprite
+# The surface drawn on the screen is now an attribute of 'player'
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Player, self).__init__()
+        self.surf = player_img
+        self.surf.set_colorkey((0, 0, 0), RLEACCEL)
+        self.rect = self.surf.get_rect()
+
+    # Move the sprite based on user keypresses
+    def update(self, pressed_keys):
+        if pressed_keys[K_w]:
+            self.rect.move_ip(0, -5 * game_speed)
+        if pressed_keys[K_s]:
+            self.rect.move_ip(0, 5 * game_speed)
+        if pressed_keys[K_a]:
+            self.rect.move_ip(-5 * game_speed, 0)
+        if pressed_keys[K_d]:
+            self.rect.move_ip(5 * game_speed, 0)
+
+        # Keep player on the screen
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > SCREEN_WIDTH:
+            self.rect.right = SCREEN_WIDTH
+        if self.rect.top <= 0:
+            self.rect.top = 0
+        if self.rect.bottom >= SCREEN_HEIGHT:
+            self.rect.bottom = SCREEN_HEIGHT
 
 
-def input(key):
-    if key == 'space':
-        player.y += 1
-        invoke(setattr, player, 'y', player.y-1, delay=.25)
+# Define the enemy object by extending pygame.sprite.Sprite
+# The surface you draw on the screen is now an attribute of 'enemy'
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Enemy, self).__init__()
+        self.surf = enemy_img
+        self.surf.set_colorkey((0, 0, 0), RLEACCEL)
+        self.rect = self.surf.get_rect(
+            center=(
+                random.randint(SCREEN_WIDTH + 20, SCREEN_WIDTH + 100),
+                random.randint(0, SCREEN_HEIGHT),
+            )
+        )
+        self.speed = random.randint(5 * game_speed, 15 * game_speed)
+
+    # Move the sprite based on speed
+    # Remove the sprite when it passes the left edge of the screen
+    def update(self):
+        self.rect.move_ip(-self.speed, 0)
+        if self.rect.right < 0:
+            self.kill()
 
 
-# start running the game
-app.run()
+# Define the cloud object by extending pygame.sprite.Sprite
+# Use an image for a better-looking sprite
+class Cloud(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Cloud, self).__init__()
+        self.surf = cloud_img
+        self.surf.set_colorkey((0, 0, 0), RLEACCEL)
+        # The starting position is randomly generated
+        self.rect = self.surf.get_rect(
+            center=(
+                random.randint(SCREEN_WIDTH + 20, SCREEN_WIDTH + 100),
+                random.randint(0, SCREEN_HEIGHT),
+            )
+        )
+
+    # Move the cloud based on a constant speed
+    # Remove the cloud when it passes the left edge of the screen
+    def update(self):
+        self.rect.move_ip(-15 * game_speed, 0)
+        if self.rect.right < 0:
+            self.kill()
+
+# Instantiate player.
+player_img = pygame.transform.scale(pygame.image.load("jet.png").convert(), (100,50))
+player = Player()
+
+# Create a custom event for adding a new enemy
+enemy_img = pygame.transform.scale(pygame.image.load("missile.png").convert(), (100,50))
+ADDENEMY = pygame.USEREVENT + 1
+pygame.time.set_timer(ADDENEMY, 250)
+
+cloud_img = pygame.transform.scale(pygame.image.load("cloud.png").convert(), (100,50))
+ADDCLOUD = pygame.USEREVENT + 2
+pygame.time.set_timer(ADDCLOUD, 1000)
+
+# Create groups to hold enemy sprites and all sprites
+# - enemies is used for collision detection and position updates
+# - all_sprites is used for rendering
+enemies = pygame.sprite.Group()
+clouds = pygame.sprite.Group()
+all_sprites = pygame.sprite.Group()
+all_sprites.add(player)
+
+#Setup the clock for a decent framerate
+clock = pygame.time.Clock()
+
+# Main loop
+while running:
+    # Look at every event in the queue
+    for event in pygame.event.get():
+        # Did the user hit a key?
+        if event.type == KEYDOWN:
+            # Was it the Escape key? If so, stop the loop.
+            if event.key == K_ESCAPE:
+                running = False
+
+        # Did the user click the window close button? If so, stop the loop.
+        elif event.type == QUIT:
+            running = False
+
+        # Add a new enemy?
+        elif event.type == ADDENEMY:
+            # Create the new enemy and add it to sprite groups
+            new_enemy = Enemy()
+            enemies.add(new_enemy)
+            all_sprites.add(new_enemy)
+
+        # Add a new cloud?
+        elif event.type == ADDCLOUD:
+            # Create the new cloud and add it to sprite groups
+            new_cloud = Cloud()
+            clouds.add(new_cloud)
+            all_sprites.add(new_cloud)
+
+    # Get the set of keys pressed and check for user input
+    pressed_keys = pygame.key.get_pressed()
+
+    # Update the player sprite based on user keypresses
+    player.update(pressed_keys)
+
+    # Update enemy position
+    enemies.update()
+    clouds.update()
+
+    screen.fill((135, 206, 250))
+
+    # Draw all sprites
+    for entity in all_sprites:
+        screen.blit(entity.surf, entity.rect)
+
+    # Check if any enemies have collided with the player
+    if pygame.sprite.spritecollideany(player, enemies):
+        # If so, then remove the player and stop the loop
+        player.kill()
+        running = False
+
+    # Draw surf at the new coordinates
+    # Draw the player on the screen
+    screen.blit(player.surf, player.rect)
+    pygame.display.flip()
+
+    # Ensure program maintains a rate of 30 frames per second
+    clock.tick(30)
