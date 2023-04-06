@@ -6,8 +6,8 @@ from pygame.locals import *
 pygame.init()
 pygame.display.set_caption("Run Forest!")
 
-SCREEN_WIDTH = 750
-SCREEN_HEIGHT = 450
+SCREEN_WIDTH = 960
+SCREEN_HEIGHT = 540
 FPS = 30
 GAME_SPEED = 1
 
@@ -15,20 +15,28 @@ clock = pygame.time.Clock()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 smallfont = pygame.font.SysFont('TimesNewRoman',35) 
 
-background_scroll = 0
+bg_scroll = 0
 
-background_images = []
-for bg in range (1,6):
-    background_image = pygame.transform.scale(pygame.image.load(f"layer_0{bg}_1920 x 1080.png").convert_alpha(), (960,540))
-    background_images.append(background_image)
-background_width = background_images[0].get_width()
+bg_imgs = []
+for bg in range (2,6):
+    bg_img = pygame.transform.scale(pygame.image.load(f"layer_0{bg}_1920 x 1080.png").convert_alpha(), (960,540))
+    bg_imgs.append(bg_img)
+bg_width = bg_imgs[0].get_width()
 
-def draw_background():
+ground_image = pygame.image.load("layer_01_1920 x 1080.png").convert_alpha()
+ground_width = ground_image.get_width()
+ground_height = ground_image.get_height()
+
+def draw_bg():
     for x in range(5):
         speed = GAME_SPEED
-        for bg in background_images:
-            screen.blit(bg, (x * background_width - background_scroll * speed, 0))
+        for bg in bg_imgs:
+            screen.blit(bg, ((x * bg_width) - bg_scroll * speed, 0))
             speed += .2
+
+def draw_ground():
+    for x in range(15):
+        screen.blit(ground_image, ((x * ground_width) - bg_scroll * 2.2, SCREEN_HEIGHT - ground_height))
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -106,9 +114,9 @@ cloud_img = pygame.transform.scale(pygame.image.load("cloud.png").convert_alpha(
 resume_img = pygame.image.load("resume.png").convert_alpha()
 options_img = pygame.image.load("options.png").convert_alpha()
 quit_img = pygame.image.load("quit.png").convert_alpha()
-play_button = button.Button(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, resume_img, .1)
-options_button = button.Button(SCREEN_WIDTH/2+100, SCREEN_HEIGHT/2, options_img, .4)
-quit_button = button.Button(SCREEN_WIDTH/2+200, SCREEN_HEIGHT/2, quit_img, .4)
+play_button = button.Button(SCREEN_WIDTH/2-100, SCREEN_HEIGHT/2, resume_img, .1)
+options_button = button.Button(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, options_img, .4)
+quit_button = button.Button(SCREEN_WIDTH/2+100, SCREEN_HEIGHT/2, quit_img, .4)
 
 player = Player()
 ADDENEMY = pygame.USEREVENT + 1
@@ -127,12 +135,14 @@ menu_state = "main"
 
 while running:
     clock.tick(FPS)
+    screen.fill((135, 206, 250))
+    draw_bg()
+    draw_ground()
 
     if game_start == False:
         for event in pygame.event.get():
             mouse = pygame.mouse.get_pos()
             if menu_state == "main":
-                screen.fill((135, 206, 250))
                 if play_button.draw(screen):
                     game_start = True
                 elif options_button.draw(screen):
@@ -156,11 +166,11 @@ while running:
         enemies.update()
         clouds.update()
         #screen.fill((135, 206, 250))
-        draw_background()
-        if pressed_keys[K_a] and background_scroll > 0:
-            background_scroll -= 5
-        elif pressed_keys[K_d] and background_scroll < 3000:
-            background_scroll += 5
+        
+        if pressed_keys[K_a] and bg_scroll > 0:
+            bg_scroll -= 5
+        elif pressed_keys[K_d] and bg_scroll < 3000:
+            bg_scroll += 5
 
         for entity in all_sprites:
             screen.blit(entity.surf, entity.rect)
